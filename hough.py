@@ -11,8 +11,9 @@ def main():
     image = np.asarray(heif_file)
 
     # Convert to grayscale, blurred it and detect edges from the black&white input
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 75, 200)
+    # edges = cv2.Canny(gray, 75, 200)
+
+    edges = preprocess(image)
 
     horizontal, vertical = extract_lines(edges)
     
@@ -34,6 +35,22 @@ def main():
     
     output = draw_score(hscores, output)
     cv2.imwrite("./output/hough.jpg", output)
+
+def preprocess(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    invGamma = 1.0 / 0.3
+    table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+
+    # apply gamma correction using the lookup table
+    gray = cv2.LUT(gray, table)
+
+    ret,thresh = cv2.threshold(gray,80,255,cv2.THRESH_BINARY)
+    # Morph Close
+    # kernel = np.ones((5, 5), np.uint8) 
+    # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (50,50))
+    # morphed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+    # cv2.imwrite("./output/morphed.jpg", morphed)
+    return thresh
 
 def extract_lines(edges):
     lines = cv2.HoughLinesP(
