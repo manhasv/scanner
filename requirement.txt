@@ -1,0 +1,4 @@
+conda create -n scanner python=3.11
+
+pip install pillow-heif
+opencv-python numpy matplotlib
