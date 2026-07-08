@@ -2,26 +2,10 @@ import numpy as np
 import cv2
 import pillow_heif
 import sys
-
-INPUT = "./input/test2.HEIC"
-
-def main():
-    # adding file check later for other extensions
-    heif_file = pillow_heif.open_heif(INPUT, convert_hdr_to_8bit=False, bgr_mode=True)
-    image = np.asarray(heif_file)
-    IMAGE = image
-
-    processed_img = preprocess(IMAGE)
-    contours = detect_contours(processed_img)
-
-    approx, corners = detect_doc_contour(contours)
-    
-    draw_contours(IMAGE.copy(), [approx], "./output/contour.png")
-    draw_corners(IMAGE.copy(), corners)
-    
-    warp(IMAGE.copy(), corners)
-
-
+import argparse
+import tkinter as tk
+from tkinter import filedialog
+from pathlib import Path
 
 def resize_img(image):
     height, width = image.shape[:2]
@@ -97,7 +81,7 @@ def detect_doc_contour(contours):
     
     corners = detect_corners(approx)
 
-    return approx, corners
+    return approx, corners, sorted_contours[0]
     
 def detect_corners(pts):
     rect = np.zeros((4, 2), dtype="float32")
@@ -151,6 +135,69 @@ def warp(image, corners):
     
     warped_image = cv2.warpPerspective(image, M, (int(width), int(height)))
     cv2.imwrite("./output/warped.png", warped_image)
+    
+def select_image_file():
+    """File Picker using tkinter"""
+    root = tk.Tk()
+    root.withdraw() # Hide the main tkinter window
+    file_path = filedialog.askopenfilename(
+        title="Select a Document Image",
+        filetypes=[("Image files", "*.jpg *.jpeg *.png *.HEIC *.heic"), ("All files", "*.*")]
+    )
+    root.destroy()
+    return file_path if file_path else None
+
+def get_image_path():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "image",
+        nargs="?",
+        type=Path,
+        help="Image to scan"
+    )
+
+    args = parser.parse_args()
+
+    if args.image:
+        return args.image
+
+    return select_image_file()
+
+def load_image(path):
+    """Loads image, handling files extension"""
+    _, ext = os.path.splitext(path)
+    if ext.lower() in ['.heic']:
+        heif_file = pillow_heif.open_heif(path, convert_hdr_to_8bit=False, bgr_mode=True)
+        return np.asarray(heif_file)
+    else:
+        return cv2.imread(path)
+
+def main():
+    """File Selector"""
+    file_path = get_image_path()
+    if not file_path:
+        print("No file selected. Exiting")
+        return
+
+    """ Parse image contnet """
+    # adding file check later for other extensions
+    heif_file = pillow_heif.open_heif(file_path, convert_hdr_to_8bit=False, bgr_mode=True)
+    image = np.asarray(heif_file)
+    IMAGE = image.copy()
+
+    """Pre-process and get contours"""
+    processed_img = preprocess(IMAGE)
+    contours = detect_contours(processed_img)
+
+    approx, corners, contour = detect_doc_contour(contours)
+    
+    draw_contours(IMAGE.copy(), [approx], "./output/hull.png")
+    draw_contours(IMAGE.copy(), contour, "./output/contour.png")
+    draw_corners(IMAGE.copy(), corners)
+    
+    """Perspective warp and return"""
+    warp(IMAGE.copy(), corners)
 
 if __name__ == '__main__':
     main()
