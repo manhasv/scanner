@@ -2,10 +2,12 @@ import numpy as np
 import cv2
 import pillow_heif
 import sys
+import os
 import argparse
 import tkinter as tk
 from tkinter import filedialog
 from pathlib import Path
+import scipy.interpolate as interp
 
 def resize_img(image):
     height, width = image.shape[:2]
@@ -22,65 +24,16 @@ def preprocess(image):
 
     # apply gamma correction using the lookup table
     gray = cv2.LUT(gray, table)
+    
+    # Ensure output dir exists
+    os.makedirs('output', exist_ok=True)
     cv2.imwrite('output/gray.png', gray)
-    _,thresh = cv2.threshold(gray,80,255,cv2.THRESH_BINARY)
-    #thresh = cv2.adaptiveThreshold(gray,255,1,1,11,2)
-    output = image.copy()
+    
+    ret,thresh = cv2.threshold(gray,80,255,cv2.THRESH_BINARY)
     cv2.imwrite('output/thresh.png', thresh)
-    # Morph Close
-    # kernel = np.ones((5, 5), np.uint8) 
-    # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (50,50))
-    # morphed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
-    # cv2.imwrite("./output/morphed.jpg", morphed)
     return thresh
 
-def preprocess2(image):
-    # Convert to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Improve local contrast (handles shadows much better)
-    clahe = cv2.createCLAHE(
-        clipLimit=2.0,
-        tileGridSize=(8, 8)
-    )
-    gray = clahe.apply(gray)
-    cv2.imwrite("output/01_clahe.png", gray)
-
-    # Remove small noise while preserving edges
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    cv2.imwrite("output/02_blur.png", blurred)
-
-    # Detect edges
-    edges = cv2.Canny(
-        blurred,
-        threshold1=50,
-        threshold2=150
-    )
-    cv2.imwrite("output/03_edges.png", edges)
-
-    # Connect broken edges
-    kernel = cv2.getStructuringElement(
-        cv2.MORPH_RECT,
-        (5, 5)
-    )
-
-    closed = cv2.morphologyEx(
-        edges,
-        cv2.MORPH_CLOSE,
-        kernel,
-        iterations=2
-    )
-
-    cv2.imwrite("output/04_closed.png", closed)
-
-    return closed
-
 def detect_contours(image):
-    #cv2.RETR_EXTERNAL: Retrieves only the outermost boundary contours.
-    #cv2.RETR_LIST: Retrieves all contours without establishing any parent-child hierarchy.
-    #cv2.RETR_TREE: Retrieves all contours and reconstructs a full hierarchical relationship tree
-
-    #cv2.CHAIN_APPROX_SIMPLE: Compresses horizontal, vertical, and diagonal segments (e.g., reduces a rectangle boundary to just 4 corner points)
     contours, _ = cv2.findContours(
         image,
         cv2.RETR_EXTERNAL,
@@ -108,15 +61,16 @@ def detect_doc_contour(contours):
     perimeter = cv2.arcLength(hull, True)
     var = 0.02
     
-    # while length != 4:
-    #     if length < 4:
-    #         var += 0.005
-    #     else:
-    #         var -= 0.005
-    # Missing solution when the captured image is not a rectangle or shadow is clipped in
-    epsilon = var * perimeter
-    approx = cv2.approxPolyDP(hull, epsilon, True)
-    
+    while length != 4:
+        if length < 4:
+            var += 0.005
+        else:
+            var -= 0.005
+        # Missing solution when the captured image is not a rectangle or shadow is clipped in
+        epsilon = var * perimeter
+        approx = cv2.approxPolyDP(hull, epsilon, True)
+        length = len(approx)
+        
     if len(approx) != 4:
         print(f"Error length of detected contour is {len(approx)}")
         sys.exit(-1)
@@ -161,22 +115,92 @@ def draw_corners(output, corners):
     
     cv2.imwrite("output/corners.png", output)
 
-def warp(image, corners):
+
+# --- MESH WARP UTILITY FUNCTIONS ---
+
+def get_contour_segment(contour, idx1, idx2):
+    """Extracts the shortest path along the contour loop between two indices."""
+    N = len(contour)
+    dist_forward = (idx2 - idx1) % N
+    dist_backward = (idx1 - idx2) % N
+    
+    if dist_forward < dist_backward:
+        if idx1 < idx2: return contour[idx1:idx2+1]
+        else: return np.vstack((contour[idx1:], contour[:idx2+1]))
+    else:
+        if idx2 < idx1: return contour[idx2:idx1+1][::-1]
+        else: return np.vstack((contour[idx2:], contour[:idx1+1]))[::-1]
+
+def resample_curve(points, num_points):
+    """Fits a B-spline to the physical curve and resamples it to uniform spacing."""
+    # splprep crashes if there are exact duplicate coordinates consecutively
+    diffs = np.any(points[1:] != points[:-1], axis=1)
+    points = np.vstack((points[0], points[1:][diffs]))
+    
+    x = points[:, 0]
+    y = points[:, 1]
+    
+    k = min(3, len(points) - 1)
+    if k < 1: 
+        return np.linspace(points[0], points[-1], num_points)
+        
+    tck, u = interp.splprep([x, y], s=0, k=k)
+    u_new = np.linspace(0, 1, num_points)
+    x_new, y_new = interp.splev(u_new, tck)
+    
+    return np.column_stack((x_new, y_new))
+
+
+# --- NEW MESH WARP FUNCTION ---
+
+def mesh_warp(image, corners, contour):
     TL, TR, BR, BL = corners
 
+    # 1. Output dimensions (Enforce A4 Aspect Ratio)
     width = max(np.linalg.norm(BR - BL), np.linalg.norm(TR - TL))
     height = width * 1.414
-
-    matrix = np.float32([
-        [0, 0],
-        [width - 1, 0],
-        [width - 1, height - 1],
-        [0, height - 1],
-    ])
-    M = cv2.getPerspectiveTransform(corners, matrix, solveMethod=None)
+    width, height = int(width), int(height)
     
-    warped_image = cv2.warpPerspective(image, M, (int(width), int(height)))
+    # 2. Find closest indices of the 4 corners in the raw contour loop
+    contour_flat = contour.reshape(-1, 2)
+    corner_indices = []
+    for corner in corners:
+        distances = np.linalg.norm(contour_flat - corner, axis=1)
+        corner_indices.append(np.argmin(distances))
+        
+    TL_idx, TR_idx, BR_idx, BL_idx = corner_indices
+    
+    # 3. Extract the physical curved edges using shortest loop paths
+    top_edge_raw = get_contour_segment(contour_flat, TL_idx, TR_idx)
+    # BL to BR ensures the array moves left-to-right to match the top edge
+    bottom_edge_raw = get_contour_segment(contour_flat, BL_idx, BR_idx) 
+    
+    # 4. Resample the curves using B-Splines to perfectly match the target width
+    top_edge_full = resample_curve(top_edge_raw, width)
+    bottom_edge_full = resample_curve(bottom_edge_raw, width)
+    
+    # 5. Build the dense mapping grid (Source Mesh)
+    dest_y, dest_x = np.mgrid[0:height, 0:width]
+    
+    # v represents vertical progression from top (0.0) to bottom (1.0)
+    v = dest_y.astype(np.float32) / (height - 1)
+    V = v[..., np.newaxis] # (height, width, 1)
+    
+    # Expand edges to broadcast vertically: shape (1, width, 2)
+    TE = top_edge_full.reshape(1, width, 2)
+    BE = bottom_edge_full.reshape(1, width, 2)
+    
+    # Linearly interpolate vertically between the curved top and bottom edges
+    source_mesh = TE + V * (BE - TE)
+    
+    map_x = source_mesh[..., 0].astype(np.float32)
+    map_y = source_mesh[..., 1].astype(np.float32)
+    
+    warped_image = cv2.remap(image, map_x, map_y, cv2.INTER_LINEAR)
     cv2.imwrite("./output/warped.png", warped_image)
+    print("Mesh warping complete! Saved to ./output/warped.png")
+    return warped_image
+    
     
 def select_image_file():
     """File Picker using tkinter"""
@@ -190,7 +214,6 @@ def select_image_file():
     return file_path if file_path else None
 
 def get_image_path():
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "image",
@@ -213,7 +236,7 @@ def load_image(path):
         heif_file = pillow_heif.open_heif(path, convert_hdr_to_8bit=False, bgr_mode=True)
         return np.asarray(heif_file)
     else:
-        return cv2.imread(path)
+        return cv2.imread(str(path))
 
 def main():
     """File Selector"""
@@ -222,25 +245,23 @@ def main():
         print("No file selected. Exiting")
         return
 
-    """ Parse image contnet """
+    """ Parse image content """
     # adding file check later for other extensions
-    heif_file = pillow_heif.open_heif(file_path, convert_hdr_to_8bit=False, bgr_mode=True)
-    image = np.asarray(heif_file)
-    IMAGE = image.copy()
+    IMAGE = load_image(file_path)
 
     """Pre-process and get contours"""
-    processed_img = preprocess2(IMAGE)
+    processed_img = preprocess(IMAGE)
     contours = detect_contours(processed_img)
 
     approx, corners, contour = detect_doc_contour(contours)
-    print(contour.shape)
     
     draw_contours(IMAGE.copy(), [approx], "./output/hull.png")
-    draw_contours(IMAGE.copy(), contour, "./output/contour.png")
+    draw_contours(IMAGE.copy(), [contour], "./output/contour.png")
     draw_corners(IMAGE.copy(), corners)
     
-    """Perspective warp and return"""
-    warp(IMAGE.copy(), corners)
+    print("before warp")
+    """Mesh warp and return"""
+    mesh_warp(IMAGE.copy(), corners, contour)
 
 if __name__ == '__main__':
     main()
