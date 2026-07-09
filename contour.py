@@ -7,9 +7,9 @@ import tkinter as tk
 from tkinter import filedialog
 from pathlib import Path
 
-def resize_img(image):
+def resize_img(image, target_height):
     height, width = image.shape[:2]
-    target_height = 500
+    
     proportion = target_height/ float(height)
     target_width = int(width * proportion)
     resized = cv2.resize(image, (target_width, target_height), interpolation=cv2.INTER_AREA)
@@ -33,47 +33,6 @@ def preprocess(image):
     # morphed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
     # cv2.imwrite("./output/morphed.jpg", morphed)
     return thresh
-
-def preprocess2(image):
-    # Convert to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Improve local contrast (handles shadows much better)
-    clahe = cv2.createCLAHE(
-        clipLimit=2.0,
-        tileGridSize=(8, 8)
-    )
-    gray = clahe.apply(gray)
-    cv2.imwrite("output/01_clahe.png", gray)
-
-    # Remove small noise while preserving edges
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    cv2.imwrite("output/02_blur.png", blurred)
-
-    # Detect edges
-    edges = cv2.Canny(
-        blurred,
-        threshold1=50,
-        threshold2=150
-    )
-    cv2.imwrite("output/03_edges.png", edges)
-
-    # Connect broken edges
-    kernel = cv2.getStructuringElement(
-        cv2.MORPH_RECT,
-        (5, 5)
-    )
-
-    closed = cv2.morphologyEx(
-        edges,
-        cv2.MORPH_CLOSE,
-        kernel,
-        iterations=2
-    )
-
-    cv2.imwrite("output/04_closed.png", closed)
-
-    return closed
 
 def detect_contours(image):
     #cv2.RETR_EXTERNAL: Retrieves only the outermost boundary contours.
@@ -211,7 +170,7 @@ def load_image(path):
     _, ext = os.path.splitext(path)
     if ext.lower() in ['.heic']:
         heif_file = pillow_heif.open_heif(path, convert_hdr_to_8bit=False, bgr_mode=True)
-        return np.asarray(heif_file)
+        return np.asarray(heif_file).copy()
     else:
         return cv2.imread(path)
 
@@ -223,9 +182,7 @@ def main():
         return
 
     """ Parse image contnet """
-    # adding file check later for other extensions
-    heif_file = pillow_heif.open_heif(file_path, convert_hdr_to_8bit=False, bgr_mode=True)
-    image = np.asarray(heif_file)
+    image = load_image(file_path)
     IMAGE = image.copy()
 
     """Pre-process and get contours"""

@@ -34,6 +34,7 @@ def get_image_path():
     args = parser.parse_args()
 
     if args.image:
+        print(args.image)
         return args.image
 
     return select_image_file()
@@ -43,6 +44,6 @@ def load_image(path):
     _, ext = os.path.splitext(path)
     if ext.lower() in ['.heic']:
         heif_file = pillow_heif.open_heif(path, convert_hdr_to_8bit=False, bgr_mode=True)
-        return np.asarray(heif_file)
+        return np.asarray(heif_file).copy()
     else:
         return cv2.imread(path)
