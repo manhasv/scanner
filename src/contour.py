@@ -1,6 +1,23 @@
 import numpy as np
 import cv2
 
+def detect_corners(pts):
+    rect = np.zeros((4, 2), dtype="float32")
+
+    pts = pts.reshape(4, 2)
+    s = pts.sum(axis=1)
+
+    rect[0] = pts[np.argmin(s)]
+    rect[2] = pts[np.argmax(s)]
+
+    diff = np.diff(pts, axis=1)
+    # Top-Right will have the smallest difference
+    rect[1] = pts[np.argmin(diff)]
+    # Bottom-Left will have the largest difference
+    rect[3] = pts[np.argmax(diff)]
+
+    return rect
+
 def detect_contours(image):
     #cv2.RETR_EXTERNAL: Retrieves only the outermost boundary contours.
     #cv2.RETR_LIST: Retrieves all contours without establishing any parent-child hierarchy.
@@ -17,16 +34,19 @@ def detect_contours(image):
 def detect_contours2(img):
     con = np.zeros_like(img)
    
-    contours, hierarchy = cv2.findContours(canny, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    contours, hierarchy = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
     # Keeping only the largest detected contour.
     page = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
     con = cv2.drawContours(con, page, -1, (0, 255, 255), 3)
+    return con
 
 def draw_contours(image, contours, output):
     cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
     cv2.imwrite(output, image)
 
-def detect_doc_contour(contours):
+def detect_doc_contour(image):
+    contours = detect_contours(image)
+
     sorted_contours = sorted(
         contours,
         key=cv2.contourArea,
@@ -34,8 +54,6 @@ def detect_doc_contour(contours):
     )
     
     hull = cv2.convexHull(sorted_contours[0])
-    print(f"contour {sorted_contours[0].shape}")
-    print(f"hull {hull.shape}")
 
     # approx to curve it down to 4 corners
     length = 0
@@ -59,22 +77,7 @@ def detect_doc_contour(contours):
 
     return approx, corners, sorted_contours[0]
     
-def detect_corners(pts):
-    rect = np.zeros((4, 2), dtype="float32")
 
-    pts = pts.reshape(4, 2)
-    s = pts.sum(axis=1)
-
-    rect[0] = pts[np.argmin(s)]
-    rect[2] = pts[np.argmax(s)]
-
-    diff = np.diff(pts, axis=1)
-    # Top-Right will have the smallest difference
-    rect[1] = pts[np.argmin(diff)]
-    # Bottom-Left will have the largest difference
-    rect[3] = pts[np.argmax(diff)]
-
-    return rect
     
 def draw_corners(output, corners):
     for i, corner in enumerate(corners):

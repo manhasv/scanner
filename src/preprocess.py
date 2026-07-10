@@ -41,7 +41,6 @@ def preprocess_clahe(image):
         tileGridSize=(8, 8)
     )
     gray = clahe.apply(gray)
-    cv2.imwrite("output/01_clahe.png", gray)
 
     # Remove small noise while preserving edges
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -80,3 +79,15 @@ def preprocess_cannyedge(image):
     canny = cv2.dilate(canny, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
 
     return canny
+
+def grab_cut(image):
+
+    mask = np.zeros(img.shape[:2],np.uint8)
+    bgdModel = np.zeros((1,65),np.float64)
+    fgdModel = np.zeros((1,65),np.float64)
+    rect = (20,20,img.shape[1]-20,img.shape[0]-20)
+    cv2.grabCut(img,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
+    mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
+    img = img*mask2[:,:,np.newaxis]
+
+    return img
