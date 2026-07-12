@@ -5,7 +5,6 @@ from src.preprocess import *
 from src.contour import detect_doc_contour, draw_contours, draw_corners
 from src.warp import warp, warp2
 
-
 def gray_world_white_balance(img):
     # 1. Convert to float to prevent uint8 overflow issues during math operations
     img_float = img.astype(np.float32)
@@ -45,6 +44,56 @@ def contrast_enhance(img):
 
     return enhanced_img
 
+def homomorphic_filter(img, alpha=0.75, beta=1.25, cutoff=80, order=2):
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    L = lab[:, :, 0].astype(np.float32)
+    # 1. Log Transform: log(I(x,y)) = log(i(x,y)) + log(r(x,y))
+    img_log = np.log(L + 1)
+    
+    # 2. FFT to frequency domain
+    fft = np.fft.fftshift(np.fft.fft2(img_log))
+    
+    # 3. Create Butterworth High-Pass Filter mask
+    rows, cols = L.shape
+    u = np.arange(rows) - rows // 2
+    v = np.arange(cols) - cols // 2
+
+    y, x = np.meshgrid(u, v, indexing="ij")
+    D = np.sqrt(x**2 + y**2)
+    H = 1 - 1/(1 + (D/cutoff)**(2*order))
+    H = alpha + (beta - alpha) * H
+    # 4. Apply filter, Inverse FFT, and exponentiate
+    filtered_fft = fft * H
+    img_back = np.real(np.fft.ifft2(np.fft.ifftshift(filtered_fft)))
+    img_exp = np.exp(img_back) - 1.0
+
+    # 5. Normalize result
+    L_filtered = cv2.normalize(
+        np.clip(img_exp, 0, None),
+        None,
+        0,
+        255,
+        cv2.NORM_MINMAX
+    ).astype(np.uint8)
+    
+    lab[:, :, 0] = L_filtered
+
+    return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+def morphological_illumination(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    background = cv2.morphologyEx(
+        gray,
+        cv2.MORPH_OPEN,
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (51, 51))
+    )
+
+    corrected = cv2.divide(gray, background, scale=255)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    final_img = clahe.apply(background)
+    return final_img
+
 def main():
 
     file_path = get_image_path()
@@ -67,8 +116,8 @@ def main():
     
     wb = gray_world_white_balance(warped)
     cv2.imwrite("./output/wb.png", wb)
-    contrast = contrast_enhance(wb)
-    cv2.imwrite("./output/contrast.png", contrast)
+    morpho = morphological_illumination(wb)
+    cv2.imwrite("./output/morpho.png", morpho)
 
     
 if __name__ == "__main__":
