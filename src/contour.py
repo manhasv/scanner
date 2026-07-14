@@ -96,4 +96,4 @@ def draw_corners(output, corners):
             thickness=2  
         )
     
-    cv2.imwrite("output/corners.png", output)
+    return output

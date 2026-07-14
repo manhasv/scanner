@@ -6,13 +6,13 @@ from fastapi.templating import Jinja2Templates
 
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 from pillow_heif import register_heif_opener
 from io import BytesIO
 from pydantic import BaseModel
 import uuid
 
-from src.scanner import warp_process
+from src.warp import warp_process
 from src.contour import detect_doc_contour
 from src.preprocess import *
 
@@ -41,8 +41,9 @@ async def home(request: Request):
 async def scan(file: UploadFile = File(...)):
     data = await file.read()
     
-    pil = Image.open(BytesIO(data))
-    image = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+    pil = Image.open(BytesIO(data)) 
+    img = ImageOps.exif_transpose(pil)
+    image = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
     h, w = image.shape[:2]
 
     image_id = str(uuid.uuid4())
