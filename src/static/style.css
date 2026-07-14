@@ -1,0 +1,34 @@
+body{
+    font-family: Arial;
+    max-width:900px;
+    margin:auto;
+    padding:30px;
+}
+
+img{
+    max-width:100%;
+}
+
+button{
+    margin-top:20px;
+    padding:10px 20px;
+    cursor:pointer;
+}
+
+/* canvas sit directly on top of the image. */
+#viewer {
+    position: relative;
+    display: inline-block;
+}
+
+#preview {
+    display: block;
+    /* max-width: 100%; */
+}
+
+#overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: auto;
+}

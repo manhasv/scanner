@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 
 def warp(image, corners):
-
+    corners = np.asarray(corners, dtype=np.float32)
     TL, TR, BR, BL = corners
 
     width = max(np.linalg.norm(BR - BL), np.linalg.norm(TR - TL))

@@ -8,10 +8,6 @@ import cv2
 def process(img):
     print(img.shape)
     processed_img = preprocess_thresh(img.copy())
-    #cv2.imwrite("./output/process.png", processed_img)
-
-    processed_img2 = preprocess_clahe(img.copy())
-    #cv2.imwrite("./output/process2.png", processed_img2)
 
     approx, corners, contour = detect_doc_contour(processed_img)
     
@@ -20,5 +16,14 @@ def process(img):
     wb = gray_world_white_balance(warped)
     illu = illumination_correction(wb)
 
-    cv2.imwrite("./output/output.png", illu)
+    cv2.imwrite("./output/output.png", wb)
+    return illu
+
+def warp_process(img, corners):
+    warped = warp(img.copy(), corners)
+    
+    wb = gray_world_white_balance(warped)
+    illu = illumination_correction(wb)
+
+    cv2.imwrite("./output/output.png", wb)
     return illu
