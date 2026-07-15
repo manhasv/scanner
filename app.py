@@ -15,6 +15,7 @@ import uuid
 from src.warp import warp_process
 from src.contour import detect_doc_contour
 from src.preprocess import *
+from src.exports import export_image
 
 class ScanRequest(BaseModel):
     image_id: str
@@ -47,7 +48,10 @@ async def scan(file: UploadFile = File(...)):
     h, w = image.shape[:2]
 
     image_id = str(uuid.uuid4())
-    image_store[image_id] = image
+    image_store[image_id] = {
+        "original" : image,
+        "scanned": None
+    }
 
     # need to handle this better
     processed_img = preprocess_thresh(image.copy())
@@ -66,7 +70,7 @@ async def scan(file: UploadFile = File(...)):
 @app.get("/preview/{image_id}")
 async def get_preview(image_id: str):
 
-    image = image_store.get(image_id)
+    image = image_store[image_id]["original"]
 
     if image is None:
         raise HTTPException(404)
@@ -80,7 +84,7 @@ async def get_preview(image_id: str):
 
 @app.post("/scan")
 async def scan(request: ScanRequest):
-    image = image_store.get(request.image_id)
+    image = image_store[request.image_id]["original"]
 
     if image is None:
         raise HTTPException(
@@ -91,10 +95,39 @@ async def scan(request: ScanRequest):
     corners = np.array(request.corners)
 
     result = warp_process(image, corners)
-
+    image_store[request.image_id]["scanned"] = result
+ 
     _, encoded = cv2.imencode(".jpg", result)
 
     return Response(
         encoded.tobytes(),
         media_type="image/jpeg"
+    )
+    
+
+@app.get("/download/{image_id}")
+async def download(image_id: str, format: str = "jpg"):
+
+    session = image_store.get(image_id)
+
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Image not found"
+        )
+
+    image = session["scanned"]
+
+    data, media_type, extension = export_image(
+        image,
+        format
+    )
+
+    return Response(
+        data,
+        media_type=media_type,
+        headers={
+        "Content-Disposition":
+            f'attachment; filename="scan{extension}"'
+        }
     )

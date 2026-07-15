@@ -1,7 +1,9 @@
 const input = document.getElementById("fileInput");
 const preview = document.getElementById("preview");
 const result = document.getElementById("result");
-const button = document.getElementById("scanBtn");
+const scanBtn = document.getElementById("scanBtn");
+const downloadBtn = document.getElementById("downloadBtn");
+const format = document.getElementById("format")
 const overlay = document.getElementById("overlay");
 const ctx = overlay.getContext("2d");
 
@@ -13,6 +15,7 @@ let imageHeight = null;
 let displayCorners = [];
 let dragging = false;
 let activeCorner = -1;
+let resultUrl = null;
 
 const CORNER_RADIUS = 12;
 
@@ -54,7 +57,7 @@ preview.onload = () => {
     drawCorners();
 };
 
-button.onclick = async () => {
+scanBtn.onclick = async () => {
 
     if (!image_id){
         alert("Choose an image first.");
@@ -76,13 +79,23 @@ button.onclick = async () => {
         },
         body: JSON.stringify({
             image_id: image_id,
-            corners: corners
+            corners: corners,
         })
     });
 
     const blob = await response.blob();
 
-    result.src = URL.createObjectURL(blob);
+    resultUrl = URL.createObjectURL(blob);
+
+    result.src = resultUrl;
+
+    downloadBtn.hidden = false;
+
+    format.hidden = false;
+};
+
+downloadBtn.onclick = () => {
+    window.location.href = `/download/${image_id}?format=${format.value}`;
 };
 
 overlay.addEventListener("mousedown", (event) => {

@@ -145,6 +145,8 @@ pip install -r requirements.txt
 
 ### Run the application
 
+### Run local
+
 ```bash
 uvicorn src.api:app --reload
 ```
