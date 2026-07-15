@@ -119,7 +119,7 @@ pip install -r requirements.txt
 Install using yml:
 
 ```bash
-conda create -n scanner python=3.11
+conda env create -f environment.yml
 ```
 or 
 
