@@ -44,9 +44,7 @@ def draw_contours(image, contours, output):
     cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
     cv2.imwrite(output, image)
 
-def detect_doc_contour(image):
-    contours = detect_contours(image)
-
+def choose_doc(contours):
     sorted_contours = sorted(
         contours,
         key=cv2.contourArea,
@@ -55,27 +53,26 @@ def detect_doc_contour(image):
     
     hull = cv2.convexHull(sorted_contours[0])
 
-    # approx to curve it down to 4 corners
-    length = 0
+
     perimeter = cv2.arcLength(hull, True)
     var = 0.02
     
-    # while length != 4:
-    #     if length < 4:
-    #         var += 0.005
-    #     else:
-    #         var -= 0.005
-    # Missing solution when the captured image is not a rectangle or shadow is clipped in
     epsilon = var * perimeter
     approx = cv2.approxPolyDP(hull, epsilon, True)
     
     if len(approx) != 4:
         print(f"Error length of detected contour is {len(approx)}")
-        sys.exit(-1)
-    
-    corners = detect_corners(approx)
+        return None
+    return approx
 
-    return approx, corners, sorted_contours[0]
+def detect_doc_contour(image):
+    contours = detect_contours(image)
+
+    candidate = choose_doc(contours)
+    
+    corners = detect_corners(candidate)
+
+    return corners
     
 
     

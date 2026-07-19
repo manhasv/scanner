@@ -55,7 +55,7 @@ async def scan(file: UploadFile = File(...)):
 
     # need to handle this better
     processed_img = preprocess_thresh(image.copy())
-    approx, corners, contour = detect_doc_contour(processed_img)
+    corners = detect_doc_contour(processed_img)
 
     _, encoded = cv2.imencode(".jpg", image)
 
