@@ -221,26 +221,26 @@ def detect_document(image_bgr: np.ndarray, debug: bool = False) -> DocumentDetec
     artifacts = prepare_detection_artifacts(image_bgr)
 
     # this will crash in uvicorn since it's not on primary thread. 
-    if debug:
-        debug_views = {
-            #"1 - Working Image": artifacts.image,
-            "2 - Lightness": artifacts.lightness,
-            "3 - Normalized": artifacts.normalized,
-            "4 - Edges": artifacts.edges,
-            "5 - Paper Mask": artifacts.masks[1]
-        }
-        display_height = 600
+    # if debug:
+    #     debug_views = {
+    #         #"1 - Working Image": artifacts.image,
+    #         "2 - Lightness": artifacts.lightness,
+    #         "3 - Normalized": artifacts.normalized,
+    #         "4 - Edges": artifacts.edges,
+    #         "5 - Paper Mask": artifacts.masks[1]
+    #     }
+    #     display_height = 600
         
-        for name, img in debug_views.items():
-            # Calculate aspect ratio to maintain image proportions
-            h, w = img.shape[:2]
-            aspect_ratio = w / h
-            display_width = int(display_height * aspect_ratio)
-            # Adjust display window
-            cv2.namedWindow(name, cv2.WINDOW_NORMAL)
-            cv2.resizeWindow(name, display_width, display_height)
-            cv2.imshow(name, img)
-        cv2.waitKey(0)
+    #     for name, img in debug_views.items():
+    #         # Calculate aspect ratio to maintain image proportions
+    #         h, w = img.shape[:2]
+    #         aspect_ratio = w / h
+    #         display_width = int(display_height * aspect_ratio)
+    #         # Adjust display window
+    #         cv2.namedWindow(name, cv2.WINDOW_NORMAL)
+    #         cv2.resizeWindow(name, display_width, display_height)
+    #         cv2.imshow(name, img)
+    #     cv2.waitKey(0)
 
     height, width = artifacts.edges.shape
     image_area = float(height * width)
@@ -255,7 +255,6 @@ def detect_document(image_bgr: np.ndarray, debug: bool = False) -> DocumentDetec
         preview = artifacts.image.copy()
         for quad, _ in candidates:
             int_quad = quad.astype(np.int32)
-
             cv2.polylines(preview, [int_quad], True, (0, 255, 0), 2)
         #cv2.imshow("name", preview)
         cv2.imwrite("debug_all_candidates.jpg", preview)
