@@ -20,7 +20,7 @@ Built with **FastAPI**, **OpenCV**, and **JavaScript**.
 
 | Original | Detected | Scanned |
 |----------|----------|----------|
-| *(Add screenshot)* | *(Add screenshot)* | *(Add screenshot)* |
+| ![Original](/docs/showcase/original.jpg) | ![Detected](/docs/showcase/detect.png)| ![Scanned](/docs/showcase/scan.jpg) |
 
 ---
 
@@ -175,19 +175,7 @@ Current limitations include:
 
 - Assumes the largest quadrilateral is the document.
 - Performance may degrade under severe shadows or cluttered backgrounds.
-- Extremely curved or folded documents are not handled.
-- OCR and PDF export are not yet implemented.
-
----
-
-## Future Improvements
-
-- OCR integration
-- PDF export
-- Shadow removal
-- Adaptive thresholding
-- Machine learning–based document detection
-- Batch document scanning
+- Extremely curved or folded documents are not handled well.
 
 ---
 
