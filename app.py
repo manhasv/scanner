@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import Response, JSONResponse
 from fastapi import Request
 from fastapi.staticfiles import StaticFiles
@@ -13,8 +13,7 @@ from pydantic import BaseModel
 import uuid
 
 from src.warp import warp_process
-from src.contour import detect_doc_contour
-from src.preprocess import *
+from src.contour import detect_document
 from src.exports import export_image
 
 class ScanRequest(BaseModel):
@@ -54,15 +53,15 @@ async def scan(file: UploadFile = File(...)):
     }
 
     # need to handle this better
-    processed_img = preprocess_thresh(image.copy())
-    corners = detect_doc_contour(processed_img)
+    doc = detect_document(image, debug=True)
+    print(f'Confidence: {doc.confidence} and Method: {doc.method}')
 
     _, encoded = cv2.imencode(".jpg", image)
 
     return JSONResponse({
         "image_id": image_id,
         "preview_url": f"/preview/{image_id}",
-        "corners": corners.tolist(),
+        "corners": doc.corners.tolist(),
         "width": w,
         "height": h,
     })

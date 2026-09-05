@@ -3,7 +3,7 @@ import cv2
 
 from src.file_loader import *
 from src.preprocess import *
-from src.contour import detect_doc_contour, draw_contours, draw_corners
+from src.contour import detect_doc_contour
 from src.postprocess import *
 
 def warp(image, corners):
@@ -46,18 +46,18 @@ def warp2(image, corners):
 
     return final
   
-def process(img):
-    print(img.shape)
-    processed_img = preprocess_thresh(img.copy())
+# def process(img):
+#     print(img.shape)
+#     processed_img = preprocess_thresh(img.copy())
 
-    approx, corners, contour = detect_doc_contour(processed_img)
+#     approx, corners, contour = detect_doc_contour(processed_img)
     
-    warped = warp(img.copy(), corners)
+#     warped = warp(img.copy(), corners)
     
-    wb = gray_world_white_balance(warped)
-    illu = illumination_correction(wb)
+#     wb = gray_world_white_balance(warped)
+#     illu = illumination_correction(wb)
 
-    return illu
+#     return illu
 
 def warp_process(img, corners):
     warped = warp(img.copy(), corners)
