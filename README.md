@@ -1,14 +1,14 @@
 # Document Scanner
 
-A lightweight web-based document scanner inspired by applications such as CamScanner. This project uses classical computer vision techniques to automatically detect document boundaries, correct perspective distortion, and enhance scanned documents through a simple web interface.
+A lightweight command-line document scanner inspired by applications such as CamScanner. This project uses classical computer vision techniques to automatically detect document boundaries, correct perspective distortion, and enhance scanned documents.
 
-Built with **FastAPI**, **OpenCV**, and **JavaScript**.
+Built with **OpenCV** and **NumPy**.
 
 ---
 
 ## Features
 
-- Upload images from desktop or mobile devices
+- Terminal file browser for picking a source image (no path needed)
 - Automatic document boundary detection
 - Interactive corner adjustment
 - Perspective correction
@@ -28,13 +28,13 @@ Built with **FastAPI**, **OpenCV**, and **JavaScript**.
 
 The scanner follows the pipeline below:
 
-1. Upload an image
+1. Load an image
 2. Detect document edges
 3. Approximate the document contour
 4. Allow manual corner adjustment
 5. Apply perspective transformation
 6. Enhance the document
-7. Return the scanned image
+7. Save the scanned image
 
 ```
 Image
@@ -57,21 +57,11 @@ Scanned Document
 
 ---
 
-## Techn Stacks
+## Tech Stack
 
-### Backend
-
-- FastAPI
 - OpenCV
 - NumPy
 - Pillow
-
-### Frontend
-
-- HTML
-- CSS
-- JavaScript
-- HTML Canvas
 
 ---
 
@@ -145,17 +135,12 @@ pip install -r requirements.txt
 
 ### Run the application
 
-### Run local
-
 ```bash
-uvicorn src.api:app --reload
+python cli.py path/to/photo.jpg -o scan.pdf
 ```
 
-Then open your browser and visit:
+Omit the image argument to pick a file with a terminal file browser (arrow keys/j-k to navigate, Enter to open a folder or select a file, Backspace/h to go up a directory, q to cancel), and omit `-o/--output` to save alongside the input as `<input>_scan.jpg`. Detected corners open in an adjustable window (drag corners, Enter to confirm, Esc to cancel) before the scan is warped and saved. Run `python cli.py --help` for all options.
 
-```
-http://127.0.0.1:8000
-```
 ---
 
 ## Current Image Enhancement
