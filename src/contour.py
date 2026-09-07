@@ -211,7 +211,7 @@ def _fallback_corners(width: int, height: int) -> np.ndarray:
         dtype=np.float32,
     )
 
-def detect_document(image_bgr: np.ndarray, debug: bool = False) -> DocumentDetection:
+def detect_document(image_bgr: np.ndarray) -> DocumentDetection:
     """
     Detect the most likely document quadrilateral.
     Fold lines appear as interior edges and do not become candidates unless
@@ -220,28 +220,6 @@ def detect_document(image_bgr: np.ndarray, debug: bool = False) -> DocumentDetec
 
     artifacts = prepare_detection_artifacts(image_bgr)
 
-    # this will crash in uvicorn since it's not on primary thread. 
-    # if debug:
-    #     debug_views = {
-    #         #"1 - Working Image": artifacts.image,
-    #         "2 - Lightness": artifacts.lightness,
-    #         "3 - Normalized": artifacts.normalized,
-    #         "4 - Edges": artifacts.edges,
-    #         "5 - Paper Mask": artifacts.masks[1]
-    #     }
-    #     display_height = 600
-        
-    #     for name, img in debug_views.items():
-    #         # Calculate aspect ratio to maintain image proportions
-    #         h, w = img.shape[:2]
-    #         aspect_ratio = w / h
-    #         display_width = int(display_height * aspect_ratio)
-    #         # Adjust display window
-    #         cv2.namedWindow(name, cv2.WINDOW_NORMAL)
-    #         cv2.resizeWindow(name, display_width, display_height)
-    #         cv2.imshow(name, img)
-    #     cv2.waitKey(0)
-
     height, width = artifacts.edges.shape
     image_area = float(height * width)
     candidates: list[tuple[np.ndarray, str]] = []
@@ -249,15 +227,6 @@ def detect_document(image_bgr: np.ndarray, debug: bool = False) -> DocumentDetec
     for mask in artifacts.masks:
         candidates.extend(_candidates_from_mask(mask, image_area))
     candidates = _deduplicate(candidates)
-
-    if debug:
-        # Draw ALL surviving candidates in bright green
-        preview = artifacts.image.copy()
-        for quad, _ in candidates:
-            int_quad = quad.astype(np.int32)
-            cv2.polylines(preview, [int_quad], True, (0, 255, 0), 2)
-        #cv2.imshow("name", preview)
-        cv2.imwrite("debug_all_candidates.jpg", preview)
 
     if not candidates:
         return DocumentDetection(
@@ -288,6 +257,3 @@ def detect_document(image_bgr: np.ndarray, debug: bool = False) -> DocumentDetec
         confidence=confidence,
         method=best_method,
     )
-
-def detect_doc_contour(image_bgr: np.ndarray):
-    return detect_document(image_bgr).corners
